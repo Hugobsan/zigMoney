@@ -1,20 +1,30 @@
 FROM php:7.4-apache
 
+# Instalar dependências necessárias para compilar as extensões PHP
 RUN apt-get update && apt-get install -y \
-	locales \
-	tzdata \
+    libzip-dev \
+    libxml2-dev \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libonig-dev \
+    locales \
     dos2unix \
     iproute2 \
     nano \
     git \
     zip \
     unzip \
-    && \
-    rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Instalar extensões PHP
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
+    docker-php-ext-install gd
 
 # Setar locale PT-BR
 RUN echo "pt_BR.UTF-8 UTF-8" >> /etc/locale.gen && \
-    locale-gen "pt_BR.UTF-8" && \
+    locale-gen && \
     dpkg-reconfigure --frontend=noninteractive locales && \
     update-locale LANG="pt_BR.UTF-8" && \
     # Setar Timezone America/Sao_Paulo
@@ -22,6 +32,9 @@ RUN echo "pt_BR.UTF-8 UTF-8" >> /etc/locale.gen && \
     dpkg-reconfigure -f noninteractive tzdata && \
     # Alterar o ID do usuário www-data para ser o mesmo do host do sistema (1000)
     usermod -u 1000 -s /bin/bash www-data && groupmod -g 1000 www-data
+
+# Instalar Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Configurações do Apache
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
@@ -41,9 +54,8 @@ RUN \
     pdo_mysql \
     xdebug \
     zip && \
-    # Instalar Composer
-    curl -sS https://getcomposer.org/installer | \
-        php -- --install-dir=/usr/bin/ --filename=composer && \
+    # Instalação do Composer
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
     # Evitar o erro 'cannot create cache directory' quando rodar com usuário 1000
     mkdir -p /var/www/.composer/cache && \
     chown 1000:1000 /var/www/.composer/cache
